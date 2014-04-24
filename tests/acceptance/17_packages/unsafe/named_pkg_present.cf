@@ -1,8 +1,12 @@
-#######################################################
-#
-# Test add named package
-#
-#######################################################
+#name: Add named package
+#priority: Blocker
+#execution_schema: after_each_build     [after_each_build|after_XXX_module_change|during_stress_tests|during_release_tests...]
+#status: ACTIVE   [ACTIVE|DEPRECATED|WAITING_FOR_REVIEW]
+#story-id: 5513
+#platform: debian_6, debian_7, centos_5, centos_6, rhel_5, rhel_6
+#covering: fix_operational_repaired, fix_operational_kept
+
+# TODO: Add compliance logging check
 
 body common control
 {
@@ -33,31 +37,21 @@ bundle agent test
     vars:
         "package_name" string => "$(p.name[3])";
 
-    packages:
+    methods:
+         "package_name" usebundle => package_present("(package_name)");
+          classes => test_set_class("first_kept", "first_repaired", "first_notkept");
 
-
-        debian::
-
-	    "$(package_name)"
-            package_policy => "add",
-            package_method => apt_get,
-            classes => test_set_class("pass","fail");
-
-        redhat::
-
-            "$(package_name)"
-            package_policy => "add",
-            package_method => yum_rpm,
-            classes => test_set_class("pass","fail");
+         "package_name" usebundle => package_present("(package_name)");
+          classes => test_set_class("second_kept", "second_repaired", "second_notkept");
 }
 
 
 
-body classes test_set_class(ok_class,notok_class)
+body classes test_set_class(kept, repaired, notkept)
 {
-    promise_kept => { "$(ok_class)" };
-    promise_repaired => { "$(ok_class)" };
-    repair_failed => { "$(notok_class)" };
+    promise_kept => { "$(kept)" };
+    promise_repaired => { "$(repaired)" };
+    repair_failed => { "$(notkept)" };
 }
 
 #######################################################
@@ -75,7 +69,7 @@ bundle agent check
 
         any::
             "has_file" expression => fileexists("$(p.file[3][$(p.latest_version)])");
-            "ok" expression => "pass.!fail.has_pkg.has_file";
+            "ok" expression => "first_repaired.!first_kept.!first_notkept.second_kept.!second_repaired.!second_notkept.has_pkg.has_file";
 
 
     reports:
